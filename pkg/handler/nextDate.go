@@ -19,7 +19,7 @@ func NewResponseError(c *gin.Context, statusCode int, message string) {
 	c.AbortWithStatusJSON(statusCode, Error{Message: message})
 }
 
-func (h Handler) getNextDate(c *gin.Context) {
+func (h *Handler) getNextDate(c *gin.Context) {
 	var nd model.NextDate
 
 	err := c.ShouldBindQuery(&nd)
@@ -41,10 +41,10 @@ func (h *Handler) createTask(c *gin.Context) {
 	var task model.Task
 	if c.ShouldBindJSON(&task) == nil {
 		logrus.Println(fmt.Sprintf(
-			"Получили объект Task со следующими данными: date: %s, title: %s, comment: %s, repeat: %s",
+			"Task: date: %s, title: %s, comment: %s, repeat: %s",
 			task.Date, task.Title, task.Comment, task.Repeat))
 	}
-	id, err := h.service.TodoTask.CreateTask(task)
+	id, err := h.service.CreateTask(task)
 	if err != nil {
 		logrus.Error(err)
 		NewResponseError(c, http.StatusBadRequest, err.Error())
@@ -52,4 +52,16 @@ func (h *Handler) createTask(c *gin.Context) {
 	}
 	c.JSON(200, gin.H{"id": id})
 
+}
+
+func (h *Handler) getTaskById(c *gin.Context) {
+	id := c.Query("id")
+	logrus.Println("Получен запрос на задачу с id: " + id)
+	task, err := h.service.GetTaskById(id)
+	if err != nil {
+		logrus.Error(err)
+		NewResponseError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	c.JSON(200, task)
 }

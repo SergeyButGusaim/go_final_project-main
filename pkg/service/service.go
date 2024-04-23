@@ -10,6 +10,7 @@ import (
 
 	"github.com/SergeyButGusaim/go_final_project-main/pkg/model"
 	"github.com/SergeyButGusaim/go_final_project-main/pkg/store"
+	"github.com/jmoiron/sqlx"
 )
 
 const (
@@ -22,8 +23,13 @@ const (
 	taskTable                   = "scheduler"
 )
 
+type Store struct {
+	db *sqlx.DB
+}
+
 type Service struct {
 	store store.Store
+	db    *sqlx.DB
 }
 
 func NewService(store store.Store) Service {
@@ -82,7 +88,7 @@ func (s *Service) CreateTask(task model.Task) (int64, error) {
 	}
 
 	query := fmt.Sprintf("INSERT INTO %s (title, comment, date, repeat) VALUES ($1, $2, $3, $4) RETURNING id", taskTable)
-	row := s.store.QueryRow(query, task.Title, task.Comment, task.Date, task.Repeat)
+	row := s.db.QueryRow(query, task.Title, task.Comment, task.Date, task.Repeat)
 
 	var id int64
 	if err = row.Scan(&id); err != nil {
@@ -129,4 +135,20 @@ func (s *Service) checkTask(task *model.Task) error {
 		}
 	}
 	return nil
+}
+
+func (t *Service) GetTaskById(id string) (model.Task, error) {
+	if id == "" {
+		return model.Task{}, fmt.Errorf("Не указан идентификатор")
+	}
+	if _, err := strconv.Atoi(id); err != nil {
+		return model.Task{}, fmt.Errorf("Некорректный идентификатор")
+	}
+	var task model.Task
+	query := fmt.Sprintf("SELECT * FROM %s WHERE id = ?", taskTable)
+	err := t.db.Get(&task, query, id)
+	if err != nil {
+		return model.Task{}, fmt.Errorf("Задача не найдена")
+	}
+	return task, err
 }
