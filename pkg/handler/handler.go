@@ -21,6 +21,7 @@ func (h *Handler) InitRoutes() *gin.Engine {
 	router := gin.New()
 
 	router.GET("/api/nextdate", h.getNextDate)
+	router.POST("/task", h.createTask)
 
 	static := router.Group("/")
 	{

@@ -1,15 +1,26 @@
 package service
 
 import (
+	"errors"
+	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/SergeyButGusaim/go_final_project-main/pkg/model"
 	"github.com/SergeyButGusaim/go_final_project-main/pkg/store"
-	"github.com/sirupsen/logrus"
 )
 
-const DATE_FORMAT = "20060102"
+const (
+	ErrInvalidDateFormat        = "Неверный формат даты"
+	ErrEmptyRepeatRule          = "Отсутствует правило повторения"
+	ErrInvalidRepeatRuleD       = "Неверный формат правила повторения 'd'"
+	ErrInvalidNumberOfDays      = "Неверный формат количества дней"
+	ErrInvalidNumberOfDaysRange = "Неверное количество дней"
+	ErrUnsupportedRepeatRule    = "Неподдерживаемое правило повторения"
+	taskTable                   = "scheduler"
+)
 
 type Service struct {
 	store store.Store
@@ -19,57 +30,103 @@ func NewService(store store.Store) Service {
 	return Service{store: store}
 }
 
-func (s *Service) NextDate(now time.Time, date string, repeat string) (string, error) {
-	if repeat == "" {
-		logrus.Println("Правила повтора не указаны.")
-		return "", error(nil) //TODO какую ошибку надо возвращать? Нужно ли? =)
-	}
-	startDate, err := time.Parse(DATE_FORMAT, date)
+func (s *Service) NextDate(nd model.NextDate) (string, error) {
+	nowDate, err := time.Parse("20060102", nd.Now)
 	if err != nil {
-		return "", err
+		return "", errors.New(ErrInvalidDateFormat)
 	}
 
-	parts := strings.Split(repeat, " ")
-	param := parts[0]
-	switch param {
-	case "y":
-		currDate := startDate.AddDate(1, 0, 0)
-		for now.After(currDate) || now.Equal(currDate) {
-			currDate = currDate.AddDate(1, 0, 0)
-		}
+	startDate, err := time.Parse("20060102", nd.Date)
+	if err != nil {
+		return "", errors.New(ErrInvalidDateFormat)
+	}
 
-		return currDate.Format(DATE_FORMAT), nil
+	ruleParts := strings.Fields(nd.Repeat)
 
+	if len(ruleParts) == 0 && nd.Repeat != "y" {
+		return "", errors.New(ErrEmptyRepeatRule)
+	}
+
+	switch ruleParts[0] {
 	case "d":
-		if len(parts) == 1 {
-			logrus.Println("Не указан интервал в днях.")
-			return "", err
+		if len(ruleParts) != 2 {
+			return "", errors.New(ErrInvalidRepeatRuleD)
 		}
-
-		days, err := strconv.Atoi(parts[1])
+		numOfDays, err := strconv.Atoi(ruleParts[1])
 		if err != nil {
-			return "", err
+			return "", errors.New(ErrInvalidNumberOfDays)
 		}
-
-		if days > 400 {
-			logrus.Println("Превышен максимально допустимый интервал.")
-			return "", err
+		if numOfDays <= 0 || numOfDays > 365 {
+			return "", errors.New(ErrInvalidNumberOfDaysRange)
 		}
-
-		currDate := startDate.AddDate(0, 0, days)
-		for now.After(currDate) {
-			currDate = currDate.AddDate(0, 0, days)
+		nextDate := startDate.AddDate(0, 0, numOfDays)
+		for nextDate.Before(nowDate) {
+			nextDate = nextDate.AddDate(0, 0, numOfDays)
 		}
-
-		return currDate.Format(DATE_FORMAT), nil
-
-	case "w":
-		logrus.Println("Неподдерживаемый формат.")
-		return "", nil //TODO какую ошибку надо возвращать? Нужно ли? =)
-	case "m":
-		logrus.Println("Неподдерживаемый формат.")
-		return "", nil //TODO какую ошибку надо возвращать? Нужно ли? =)
-
+		return nextDate.Format("20060102"), nil
+	case "y":
+		nextYearDate := startDate.AddDate(1, 0, 0)
+		for nextYearDate.Before(nowDate) {
+			nextYearDate = nextYearDate.AddDate(1, 0, 0)
+		}
+		return nextYearDate.Format("20060102"), nil
+	default:
+		return "", errors.New(ErrUnsupportedRepeatRule)
 	}
-	return date, err
+}
+
+func (s *Service) CreateTask(task model.Task) (int64, error) {
+	err := s.checkTask(&task)
+	if err != nil {
+		return 0, err
+	}
+
+	query := fmt.Sprintf("INSERT INTO %s (title, comment, date, repeat) VALUES ($1, $2, $3, $4) RETURNING id", taskTable)
+	row := s.store.QueryRow(query, task.Title, task.Comment, task.Date, task.Repeat)
+
+	var id int64
+	if err = row.Scan(&id); err != nil {
+		return 0, err
+	}
+
+	return id, nil
+}
+
+func (s *Service) checkTask(task *model.Task) error {
+	if task.Title == "" {
+		return fmt.Errorf("Ошибка. Пустое название.")
+	}
+
+	if !regexp.MustCompile(`^([wdm]\s.*|y)?$`).MatchString(task.Repeat) {
+		return fmt.Errorf(ErrInvalidRepeatRuleD, "%v", task.Repeat)
+	}
+
+	now := time.Now().Format(`20060102`)
+
+	if task.Date == "" {
+		task.Date = now
+	}
+
+	_, err := time.Parse(`20060102`, task.Date)
+	if err != nil {
+		return fmt.Errorf(ErrInvalidDateFormat)
+	}
+
+	if task.Date < now {
+		if task.Repeat == "" {
+			task.Date = now
+		}
+		if task.Repeat != "" {
+			nd := model.NextDate{
+				Date:   task.Date,
+				Now:    now,
+				Repeat: task.Repeat,
+			}
+			task.Date, err = s.NextDate(nd)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

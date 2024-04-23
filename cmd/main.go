@@ -31,5 +31,4 @@ func main() {
 		logrus.Fatal(err)
 	}
 	logrus.Printf("Сервер запущен на порту %s", port)
-
 }
