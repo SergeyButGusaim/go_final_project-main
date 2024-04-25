@@ -1,8 +1,8 @@
 package service
 
 import (
+	"github.com/SergeyButGusaim/go_final_project-main/pkg/model"
 	"github.com/SergeyButGusaim/go_final_project-main/pkg/store"
-	"github.com/SergeyButGusaim/go_final_project/pkg/model"
 )
 
 type TodoTask interface {

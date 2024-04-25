@@ -1,4 +1,4 @@
-package service
+package store
 
 import (
 	"errors"
@@ -76,7 +76,7 @@ func (t *TaskSq) NextDate(nd model.NextDate) (string, error) {
 }
 
 func (t *TaskSq) CreateTask(task model.Task) (int64, error) {
-	err := s.checkTask(&task)
+	err := t.checkTask(&task)
 	if err != nil {
 		return 0, err
 	}
@@ -122,7 +122,7 @@ func (t *TaskSq) checkTask(task *model.Task) error {
 				Now:    now,
 				Repeat: task.Repeat,
 			}
-			task.Date, err = s.NextDate(nd)
+			task.Date, err = t.NextDate(nd)
 			if err != nil {
 				return err
 			}
@@ -140,7 +140,7 @@ func (t *TaskSq) GetTaskById(id string) (model.Task, error) {
 	}
 	var task model.Task
 	query := fmt.Sprintf("SELECT * FROM %s WHERE id = ?", dbname)
-	err := t.db.Service.Get(&task, query, id)
+	err := t.db.Get(&task, query, id)
 	if err != nil {
 		return model.Task{}, fmt.Errorf("Задача не найдена")
 	}

@@ -17,6 +17,6 @@ type Store struct {
 
 func NewStore(db *sqlx.DB) *Store {
 	return &Store{
-		TodoTask: NewTaskSqlite(db),
+		TodoTask: NewTaskSq(db),
 	}
 }

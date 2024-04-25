@@ -4,7 +4,7 @@ import (
 	app "github.com/SergeyButGusaim/go_final_project-main"
 	"github.com/SergeyButGusaim/go_final_project-main/pkg/handler"
 	"github.com/SergeyButGusaim/go_final_project-main/pkg/service"
-	store2 "github.com/SergeyButGusaim/go_final_project-main/pkg/store"
+	"github.com/SergeyButGusaim/go_final_project-main/pkg/store"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/sirupsen/logrus"
 )
@@ -15,14 +15,14 @@ const (
 
 func main() {
 	logrus.Println("Инициируем соединение с базой данных")
-	dbname, err := store2.CheckingForDb()
+	dbname, err := store.CheckingForDb()
 	if err != nil {
 		logrus.Fatal(err)
 	}
 
 	logrus.Infof("С базой данных %s соединились. Всё ОК", dbname)
 
-	st := store2.NewStore(store2.GetDB(dbname))
+	st := store.NewStore(store.GetDB(dbname))
 	svc := service.NewService(st)
 	h := handler.NewHandler(svc)
 	srv := new(app.Server)
