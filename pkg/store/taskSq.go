@@ -81,11 +81,14 @@ func (t *TaskSq) CreateTask(task model.Task) (int64, error) {
 		return 0, err
 	}
 
-	query := fmt.Sprintf("INSERT INTO %s (title, comment, date, repeat) VALUES ($1, $2, $3, $4) RETURNING id", dbname)
-	row := t.db.QueryRow(query, task.Title, task.Comment, task.Date, task.Repeat)
+	query := fmt.Sprintf("INSERT INTO %s (title, comment, date, repeat) VALUES ($1, $2, $3, $4)", dbname)
+	res, err := t.db.Exec(query, task.Title, task.Comment, task.Date, task.Repeat)
+	if err != nil {
+		return 0, err
+	}
 
-	var id int64
-	if err = row.Scan(&id); err != nil {
+	id, err := res.LastInsertId()
+	if err != nil {
 		return 0, err
 	}
 

@@ -20,13 +20,9 @@ func NewHandler(service *service.Service) *Handler {
 func (h *Handler) InitRoutes() *gin.Engine {
 	router := gin.New()
 
-	api := router.Group("/api")
-	{
-		api.GET("/nextdate", h.getNextDate)
-
-		api.POST("/task", h.createTask)
-		api.GET("/task", h.getTaskById)
-	}
+	router.GET("/api/nextdate", h.getNextDate)
+	router.POST("/api/task", h.createTask)
+	router.GET("/api/task", h.getTaskById)
 
 	static := router.Group("/")
 	{

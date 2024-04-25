@@ -26,6 +26,7 @@ func main() {
 	svc := service.NewService(st)
 	h := handler.NewHandler(svc)
 	srv := new(app.Server)
+
 	err = srv.Run(port, h.InitRoutes())
 	if err != nil {
 		logrus.Fatal(err)
