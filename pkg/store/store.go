@@ -1,13 +1,22 @@
 package store
 
 import (
+	"github.com/SergeyButGusaim/go_final_project-main/pkg/model"
 	"github.com/jmoiron/sqlx"
 )
 
-type Store struct {
-	db *sqlx.DB
+type TodoTask interface {
+	NextDate(nd model.NextDate) (string, error)
+	CreateTask(task model.Task) (int64, error)
+	GetTaskById(id string) (model.Task, error)
 }
 
-func NewStore(db *sqlx.DB) Store {
-	return Store{db: db}
+type Store struct {
+	TodoTask
+}
+
+func NewStore(db *sqlx.DB) *Store {
+	return &Store{
+		TodoTask: NewTaskSqlite(db),
+	}
 }
