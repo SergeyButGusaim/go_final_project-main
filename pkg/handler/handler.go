@@ -23,6 +23,10 @@ func (h *Handler) InitRoutes() *gin.Engine {
 	router.GET("/api/nextdate", h.getNextDate)
 	router.POST("/api/task", h.createTask)
 	router.GET("/api/task", h.getTaskById)
+	router.GET("/api/tasks", h.getTasks)
+	router.PUT("/api/task", h.updateTask)
+	router.POST("/api/task/done", h.taskDone)
+	router.DELETE("/api/task", h.deleteTask)
 
 	static := router.Group("/")
 	{

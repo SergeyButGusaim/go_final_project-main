@@ -57,3 +57,62 @@ func (h *Handler) getTaskById(c *gin.Context) {
 	}
 	c.JSON(200, task)
 }
+
+func (h *Handler) getTasks(c *gin.Context) {
+	search := c.Query("search")
+	logrus.Println("Получен запрос на задачи с поисковым запросом: " + search)
+	list, err := h.service.TodoTask.GetTasks(search)
+	if err != nil {
+		logrus.Error(err)
+		NewResponseError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	c.JSON(200, list)
+}
+
+func (h *Handler) updateTask(c *gin.Context) {
+	var task model.Task
+
+	if c.ShouldBindJSON(&task) == nil {
+		logrus.Println(fmt.Sprintf(
+			"Получили на обновление объект task со следующими данными: "+
+				"id: %s, date: %s, title: %s, comment: %s, repeat: %s",
+			task.ID, task.Date, task.Title, task.Comment, task.Repeat))
+	}
+	_, err := h.service.TodoTask.GetTaskById(task.ID)
+	if err != nil {
+		logrus.Error(err)
+		NewResponseError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	err = h.service.TodoTask.UpdateTask(task)
+	if err != nil {
+		logrus.Error(err)
+		NewResponseError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	c.JSON(200, gin.H{})
+}
+func (h *Handler) deleteTask(c *gin.Context) {
+	id, _ := c.GetQuery("id")
+	logrus.Println("Получен запрос на удаление задачи с id: " + id)
+	err := h.service.TodoTask.DeleteTask(id)
+	if err != nil {
+		logrus.Error(err)
+		NewResponseError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	c.JSON(200, gin.H{})
+}
+func (h *Handler) taskDone(c *gin.Context) {
+	id, _ := c.GetQuery("id")
+	logrus.Println("Получен запрос на завершение задачи с id: " + id)
+	err := h.service.TodoTask.TaskDone(id)
+	if err != nil {
+		logrus.Error(err)
+		NewResponseError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	c.JSON(200, gin.H{})
+}

@@ -22,3 +22,17 @@ func (t *TaskService) CreateTask(task model.Task) (int64, error) {
 func (t *TaskService) GetTaskById(id string) (model.Task, error) {
 	return t.stor.GetTaskById(id)
 }
+
+func (t *TaskService) GetTasks(search string) (model.ListTasks, error) {
+	return t.stor.GetTasks(search)
+}
+
+func (t *TaskService) UpdateTask(task model.Task) error {
+	return t.stor.UpdateTask(task)
+}
+func (t *TaskService) DeleteTask(id string) error {
+	return t.stor.DeleteTask(id)
+}
+func (t *TaskService) TaskDone(id string) error {
+	return t.stor.TaskDone(id)
+}

@@ -10,6 +10,7 @@ import (
 
 	"github.com/SergeyButGusaim/go_final_project-main/pkg/model"
 	"github.com/jmoiron/sqlx"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -20,6 +21,7 @@ const (
 	ErrInvalidNumberOfDaysRange = "Неверное количество дней"
 	ErrUnsupportedRepeatRule    = "Неподдерживаемое правило повторения"
 	dbname                      = "scheduler"
+	MaxLimit                    = 25
 )
 
 type TaskSq struct {
@@ -148,4 +150,117 @@ func (t *TaskSq) GetTaskById(id string) (model.Task, error) {
 		return model.Task{}, fmt.Errorf("Задача не найдена")
 	}
 	return task, err
+}
+
+func (t *TaskSq) GetTasks(search string) (model.ListTasks, error) {
+	var tasks []model.Task
+	var query string
+
+	switch typeSearch(search) {
+	case 0:
+		query = fmt.Sprintf("SELECT * FROM %s ORDER BY date LIMIT ?", dbname)
+		err := t.db.Select(&tasks, query, MaxLimit)
+		if err != nil {
+			return model.ListTasks{}, err
+		}
+	case 1:
+		s, _ := time.Parse(`02.01.2006`, search)
+		st := s.Format(`20060102`)
+		query = fmt.Sprintf("SELECT * FROM %s WHERE date = ? ORDER BY date LIMIT ?", dbname)
+		err := t.db.Select(&tasks, query, st, MaxLimit)
+		if err != nil {
+			return model.ListTasks{}, err
+		}
+	case 2:
+		searchQuery := fmt.Sprintf("%%%s%%", search)
+		query := `SELECT * FROM scheduler WHERE LOWER(title) LIKE ? OR LOWER(comment) LIKE ? ORDER BY date LIMIT ?`
+		rows, err := t.db.Queryx(query, searchQuery, searchQuery, MaxLimit)
+		if err != nil {
+			return model.ListTasks{}, err
+		}
+		for rows.Next() {
+			var task model.Task
+			err := rows.StructScan(&task)
+			if err != nil {
+				return model.ListTasks{}, err
+			}
+			tasks = append(tasks, task)
+		}
+	}
+
+	if len(tasks) == 0 {
+		return model.ListTasks{Tasks: []model.Task{}}, nil
+	}
+	return model.ListTasks{Tasks: tasks}, nil
+}
+
+func typeSearch(str string) int {
+	if str == "" {
+		return 0
+	}
+	_, err := time.Parse(`02.01.2006`, str)
+	if err == nil {
+		return 1
+	}
+	return 2
+}
+
+func (t *TaskSq) UpdateTask(task model.Task) error {
+	err := t.checkTask(&task)
+	if err != nil {
+		return err
+	}
+
+	query := fmt.Sprintf("UPDATE %s SET title = ?, comment = ?, date = ?, repeat = ? WHERE id = ?", dbname)
+	_, err = t.db.Exec(query, task.Title, task.Comment, task.Date, task.Repeat, task.ID)
+	if err != nil {
+		return fmt.Errorf("Задача не найдена")
+	}
+	return nil
+}
+func (t *TaskSq) DeleteTask(id string) error {
+	_, err := t.GetTaskById(id)
+	if err != nil {
+		return err
+	}
+	queryDelete := fmt.Sprintf("DELETE FROM %s WHERE id = ?", dbname)
+	_, err = t.db.Exec(queryDelete, id)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+func (t *TaskSq) TaskDone(id string) error {
+	task, err := t.GetTaskById(id)
+	if err != nil {
+		return err
+	}
+
+	if task.Repeat == "" {
+		queryDeleteTask := fmt.Sprintf("DELETE FROM %s WHERE id = ?", dbname)
+		logrus.Println(queryDeleteTask)
+		t.db.Exec(queryDeleteTask, id)
+		return nil
+	}
+
+	nd := model.NextDate{
+		Date:   task.Date,
+		Now:    time.Now().Format(`20060102`),
+		Repeat: task.Repeat,
+	}
+
+	newDate, err := t.NextDate(nd)
+	if err != nil {
+		return err
+	}
+
+	task.Date = newDate
+	queryUpdateTask := fmt.Sprintf("UPDATE %s SET date = ? WHERE id = ?", dbname)
+	logrus.Println(queryUpdateTask)
+	_, err = t.db.Exec(queryUpdateTask, task.Date, id)
+	if err != nil {
+		return err
+	}
+	return nil
+
 }
